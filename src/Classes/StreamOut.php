@@ -132,9 +132,9 @@ class StreamOut implements StreamInterface
         }
     }
 
-    private function readBuffer($bytes, $size = 204800)
+    private function readBuffer($bytes, $size = 1024)
     {
-        $bytesLeft = $bytes; // 204800 => 200KB
+        $bytesLeft = $bytes; // 1024 => 1KB
 
         while ( $bytesLeft > 0 && ! feof($this->file) ) {
             $bytesLeft > $size ? $bytesRead = $size : $bytesRead = $bytesLeft;
