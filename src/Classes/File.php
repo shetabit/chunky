@@ -14,11 +14,11 @@ class File implements FileInterface
     protected $path;
 
     /**
-     * currently open handlers
+     * currently open handles
      *
      * @var array
      */
-    protected $handlers = [];
+    protected $handles = [];
 
 
     /**
@@ -68,9 +68,9 @@ class File implements FileInterface
      */
     public function create($data)
     {
-        $handler = $this->open('w+');
+        $handle = $this->open('w+');
 
-        fwrite($handler, $data);
+        fwrite($handle, $data);
 
         return $this;
     }
@@ -85,15 +85,16 @@ class File implements FileInterface
     public function read($offset = 0, $length = null)
     {
         $offset = $offset ?? 0;
-        $length = $length ?? filesize($this->getPath());
+        $fileSize = filesize($this->getPath());
+        $length = ($length<=0 || $length>$fileSize) ? $fileSize : $length;
 
-        $handler = $this->open('r+');
+        $handle = $this->open('r+');
 
         if ($offset) {
-            fseek($handler, $offset);
+            fseek($handle, $offset);
         }
 
-        return fread($handler, $length);
+        return fread($handle, $length);
     }
 
     /**
@@ -105,13 +106,17 @@ class File implements FileInterface
      */
     public function write($data, $offset = 0)
     {
-        $handler = $this->open('a+');
+        $handle = $this->open('a');
 
-        if ($offset) {
-            fseek($handler, $offset);
-        }
+        fseek($handle, (int) $offset, SEEK_SET);
 
-        fwrite($handler, $data);
+        // lock stream
+        flock($handle, LOCK_EX);
+
+        fwrite($handle, $data);
+
+        // unlock stream
+        flock($handle, LOCK_UN);
 
         return $this;
     }
@@ -133,42 +138,42 @@ class File implements FileInterface
     }
 
     /**
-     * Open file and create a new handler
+     * Open file and create a new handle
      *
      * @param $mode
      * @return bool|resource
      */
     protected function open($mode)
     {
-         $handler = fopen($this->getPath(), $mode);
+         $handle = fopen($this->getPath(), $mode);
 
-         array_push($this->handlers, $handler);
+         array_push($this->handles, $handle);
 
-        return $handler;
+        return $handle;
     }
 
     /**
-     * Close given file handlers
+     * Close given file handles
      *
-     * @param $handler
+     * @param $handle
      * @return $this
      */
-    protected function close($handler)
+    protected function close($handle)
     {
-        fclose($handler);
+        fclose($handle);
 
         return $this;
     }
 
     /**
-     * Close all file handlers
+     * Close all file handles
      *
      * @return $this
      */
     protected function closeAll()
     {
-        foreach ($this->handlers as $handler) {
-            $this->close($handler);
+        foreach ($this->handles as $handle) {
+            $this->close($handle);
         }
 
         return $this;

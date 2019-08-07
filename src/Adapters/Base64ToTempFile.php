@@ -16,16 +16,16 @@ class Base64ToTempFile extends TempFileAdapterAbstract implements TempFileAdapte
 
         $mime = $matches[1];
         $meta = $matches[2] ? $this->extractMetas($matches[2]) : [];
-        $data = base64_decode($matches[3]);
+        $meta['size'] = $meta['size'] ?? intval(mb_strlen($matches[3]) * 3 / 4 - 1); // add data size
 
-        $meta['size'] = $meta['size'] ?? intval(mb_strlen($data) * (4/3) -1); // add file size if not exists
+        $data = base64_decode($matches[3]);
 
         return $foundFlag ? array_merge(['mime' => $mime, 'data' => $data], $meta) : null;
     }
 
     private function extractMetas($meta)
     {
-        $pattern = '/\;(\w+)[=:]?([\w\.]*)/iu';
+        $pattern = '/\;(\w+)[=:]?([\w\.\-]*)/iu';
         $foundFlag = preg_match_all($pattern,$meta,$matches);
 
         return $foundFlag ? array_combine($matches[1], $matches[2]) : [];

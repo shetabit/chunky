@@ -14,9 +14,9 @@ class TempFile extends File implements TempFileInterface
      */
     public function create($data)
     {
-        $handler = $this->openTemporary();
+        $handle = $this->openTemporary();
 
-        fwrite($handler, $data);
+        fwrite($handle, $data);
 
         return $this;
     }
@@ -25,11 +25,11 @@ class TempFile extends File implements TempFileInterface
      * Store file in the given path
      *
      * @param $path
-     * @param null $offset
+     * @param int $offset
      * @param null $length
      * @return $this
      */
-    public function saveAs($path, $offset = null, $length = null)
+    public function saveAs($path, $offset = 0, $length = null)
     {
         $resource = $this->read($offset, $length);
 
@@ -48,13 +48,13 @@ class TempFile extends File implements TempFileInterface
      */
     protected function openTemporary()
     {
-        $handler = tmpfile();
+        $handle = tmpfile();
 
-        $meta = stream_get_meta_data($handler);
+        $meta = stream_get_meta_data($handle);
         $this->setPath($meta['uri']);
 
-        array_push($this->handlers, $handler);
+        array_push($this->handles, $handle);
 
-        return $handler;
+        return $handle;
     }
 }
