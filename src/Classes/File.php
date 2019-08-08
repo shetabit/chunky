@@ -47,7 +47,9 @@ class File implements FileInterface
      */
     protected function setPath($path)
     {
-        return $this->path = $path;
+        $this->path = $path;
+
+        return $this;
     }
 
     /**
