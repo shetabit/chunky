@@ -11,6 +11,7 @@ class StreamOut implements StreamInterface
     private $boundary;
     private $delay = 0;
     private $size = 0;
+    private $mime;
 
     function __construct($file, $delay = 0)
     {
@@ -20,6 +21,7 @@ class StreamOut implements StreamInterface
         }
 
         $this->size = filesize($file);
+        $this->mime = mime_content_type($file);
         $this->file = fopen($file, "r");
         $this->boundary = md5($file);
         $this->delay = $delay;
@@ -41,8 +43,10 @@ class StreamOut implements StreamInterface
             $t = count($ranges);
         }
 
+        $mime = $this->mime ?? 'application/octet-stream';
+
         header("Accept-Ranges: bytes");
-        header("Content-Type: application/octet-stream");
+        header("Content-Type: ".$mime);
         header("Content-Transfer-Encoding: binary");
         header(sprintf('Content-Disposition: attachment; filename="%s"', $this->name));
 
