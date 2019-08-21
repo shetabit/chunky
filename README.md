@@ -14,12 +14,12 @@ handle and upload files in `base64 data URI`, `base64 json format`  and `normal 
 
 - [Install](#install)
 - [How to use](#how-to-use)
-  - [Stream output](#how-to-use)
-  - [Stream input](#how-to-use)
-  - [Collect and store input files](#how-to-use)
+  - [Stream output](#stream-output)
+  - [Stream input](#stream-input)
+  - [Collect and store input files](#collect-and-store-input-files)
   - [Create stream in Laravel Framework](#create-stream-in-laravel-framework)
-    - [Download stream](#download-stream)
-    - [Upload stream](#upload-stream)
+    - [Download stream](#resumable-chunk-download-stream-example-in-laravel)
+    - [Upload stream](#resumable-chunk-upload-stream-example-in-laravel)
 - [Change log](#change-log)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -104,7 +104,7 @@ $file->saveAs($path);
 
 #### Create stream in Laravel Framework
 
-###### Resumable chunk download  stream example in Laravel
+###### Resumable chunk download stream example in Laravel
 
 create a controller like the below and create an indirect resumable file stream in Laravel.
 
@@ -177,14 +177,14 @@ class StreamInController extends Controller
         // or we can use file's original name
         $path = './path/to/'.$file->name;
         $file->saveAs($path);
-        
+
         // ---------------------------------------------
 
-		/**
+    	/**
     		if you want advanced file upload (resumable and chunk)
     		you can use the below code
     	**/
-        
+
         $inputName = 'media'; // html input's name
         $uploadPath = './path/to/address';
 
