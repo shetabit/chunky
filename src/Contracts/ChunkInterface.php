@@ -4,13 +4,22 @@ namespace Shetabit\Chunky\Contracts;
 
 interface ChunkInterface
 {
-    public function getChunkRange();
-
-    public function getName();
-
-    public function getExtension();
-
-    public function getSize();
-
+    /**
+     * Retrieve chunk's data.
+     */
     public function getData();
+
+    /**
+     * Retrieve chunk's Offset.
+     *
+     * @return int
+     */
+    public function getOffset() : int;
+
+    /**
+     * Retrieve chunk's size.
+     *
+     * @return int
+     */
+    public function getSize() : int;
 }

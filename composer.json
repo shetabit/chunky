@@ -1,14 +1,19 @@
 {
     "name": "shetabit/chunky",
     "type": "library",
-    "description": "resummable chunk upload manager",
+    "description": "Laravel chunky",
     "keywords": [
-        "upload manager",
-        "upload-manager",
+        "chunky",
+        "shetabit",
+        "shetabit chunky",
         "chunk upload",
-        "chunk resummable upload",
-        "php resume chunk upload",
-        "resume upload"
+        "chunk download",
+        "chunk file upload",
+        "chunk file download",
+        "laravel chunk upload",
+        "laravel chunk download",
+        "laravel chunk file upload",
+        "laravel chunk file download"
     ],
     "homepage": "https://github.com/shetabit/chunky",
     "license": "MIT",
@@ -16,16 +21,18 @@
         {
             "name": "Mahdi Khanzadi",
             "email": "khanzadimahdi@gmail.com",
-            "homepage": "https://github.com/khanzadimahdi",
+            "homepage": "https://github.com/chunky",
             "role": "Developer"
         }
     ],
     "require": {
-        "php": ">=7.2"
+        "php": ">=7.2",
+        "illuminate/support": ">=5.8 <=7.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^8.3",
-        "squizlabs/php_codesniffer": "^3.4"
+        "orchestra/testbench": "^4.4",
+        "phpunit/phpunit": "^8.5",
+        "squizlabs/php_codesniffer": "^3.5"
     },
     "autoload": {
         "psr-4": {
@@ -43,8 +50,13 @@
         "fix-style": "phpcbf -p --standard=PSR2 --runtime-set ignore_errors_on_exit 1 --runtime-set ignore_warnings_on_exit 1 src tests"
     },
     "extra": {
-        "branch-alias": {
-            "dev-master": "1.0-dev"
+        "laravel": {
+            "providers": [
+                "Shetabit\\Chunky\\Provider\\ChunkyServiceProvider"
+            ],
+            "aliases": {
+                "Visitor": "Shetabit\\Chunky\\Facade\\Chunky"
+            }
         }
     },
     "config": {

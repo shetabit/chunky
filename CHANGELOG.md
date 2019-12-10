@@ -4,7 +4,7 @@ All Notable changes to `shetabit/chunky` will be documented in this file.
 
 Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
-## Date - 2019-01-09
+## Date - 2020-01-01
 
 ### Fixed
 - Nothing
