@@ -22,7 +22,9 @@ class File extends Model
      * @var array
      */
     protected $fillable = [
-        'name', 'extension', 'size', 'completed_at',
+        'client_name', 'client_extension',
+        'name', 'extension', 'size',
+        'path', 'meta',
     ];
 
     /**
@@ -32,6 +34,7 @@ class File extends Model
      */
     protected $casts = [
         'size' => 'int',
+        'meta' => 'json',
         'completed_at' => 'datetime',
     ];
 
@@ -43,5 +46,65 @@ class File extends Model
     public function chunks()
     {
         return $this->hasMany(Chunk::class);
+    }
+
+    /**
+     * Determine if file has uploaded completely
+     *
+     * @return bool
+     */
+    public function hasCompleted() : bool
+    {
+        return $this->completed_at !== null;
+    }
+
+    /**
+     * Determine if file has not yet uploaded completely
+     *
+     * @return bool
+     */
+    public function hasNotCompleted() : bool
+    {
+        return $this->completed_at === null;
+    }
+
+    /**
+     * Mark file as completely uploaded.
+     *
+     * @return $this
+     */
+    public function markAsCompleted()
+    {
+        $this->forceFill(['completed_at' => now()])->save();
+
+        return $this;
+    }
+
+    /**
+     * Mark file as uncompletely uploaded.
+     * 
+     * @return $this
+     */
+    public function markAsUncompleted()
+    {
+        $this->forceFill(['completed_at' => null])->save();
+
+        return $this;
+    }
+
+    /**
+     * Filter uncompleted file uploads.
+     */
+    public function scopeCompleted($query)
+    {
+        return $query->whereNotNull('completed_at');
+    }
+
+    /**
+     * Filter completed file uploads.
+     */
+    public function scopeUncompleted($query)
+    {
+        return $query->whereNull('completed_at');
     }
 }

@@ -17,7 +17,8 @@ class CreateChunksTable extends Migration
             $table->uuid('id')->primary();
             $table->string('size')->nullable();
             $table->string('offset')->nullable();
-            $table->uuid('file_id');
+            $table->longText('meta');
+            $table->uuid('file_id')->index();
             $table->timestamps();
             $table->softDeletes();
 

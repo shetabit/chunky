@@ -23,7 +23,7 @@ class Chunk extends Model
      * @var array
      */
     protected $fillable = [
-        'size', 'offset', 'file_uuid',
+        'size', 'offset', 'meta', 'file_id',
     ];
 
     /**
@@ -34,6 +34,7 @@ class Chunk extends Model
     protected $casts = [
         'size' => 'int',
         'offset' => 'int',
+        'meta' => 'json',
     ];
 
     /**
@@ -43,6 +44,6 @@ class Chunk extends Model
      */
     public function file()
     {
-        return $this->belongsTo(File::class, 'file_uuid');
+        return $this->belongsTo(File::class, 'file_id');
     }
 }
