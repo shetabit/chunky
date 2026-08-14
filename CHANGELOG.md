@@ -7,7 +7,25 @@ Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) princip
 ## Unreleased
 
 ### Added
-- A test suite of 179 tests covering every class of the package: the file, the temporary file, the two adapters, the
+- **`Classes\ChunkedUploadCollector`.** It reads the attributes of a chunk out of the request it arrived in, which is
+  how a plain upload carries what `$_FILES` has no room for: its range and the size of the file it belongs to. A field
+  holding a single value belongs to every chunk of the request, a field holding a list (`name="range[]"`) belongs to
+  the chunks one by one, so several files can go up in one request. Which attributes are read, and out of which
+  fields, is up to the caller; `range` and `size` are the default.
+- **Validations.** An incoming stream can be told what it takes, and every chunk is checked before anything of it is
+  written: `Validations\Size` (by the size the client announced for the whole file, and by the bytes of the chunk that
+  arrived, written as `5M`, `512 KB` or a number), `Validations\Extension` (what a file is called) and
+  `Validations\MimeType` (what it says it is, and — for the chunk that holds the beginning of a file — what its bytes
+  say it is). `Contracts\ValidationInterface` is there to write your own. A request that carries a single chunk too
+  many is turned away whole, so it leaves no half a file behind, and `ValidationFailedException::getErrors()` says
+  everything that is wrong at once.
+- **Events.** `beforeValidate()`, `afterValidate()`, `beforeUpload()` and `afterUpload()` on the incoming stream.
+  `afterUpload()` is handed how much of the file is on disk, which is how a run recognises the last chunk of a file.
+- `StreamIn::validate()`, which looks a request over and writes nothing, and a fourth constructor argument holding the
+  validations.
+- The entries `StreamIn::process()` returns carry an `assembled` key: the size of the file after that chunk was
+  written.
+- A test suite of 250 tests covering every class of the package: the file, the temporary file, the two adapters, the
   collector and both streams. Next to the unit tests there are feature tests that send a file chunk by chunk — in
   every order the chunks can arrive in, and in all three formats the package reads — and download it again range by
   range, with an interruption in the middle.
@@ -76,6 +94,8 @@ Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) princip
   then went on to write everything behind it, which is more than the `Content-Length` of the response announces.
 - **A json payload with a meta section works.** `JsonToTempFile` decoded the payload into objects and then read
   `$meta['size']` off of the `meta` object, which is a fatal error. The payload is decoded into arrays now.
+- `hasJsonFormat()` uses `json_validate()`, which PHP 8.3 added and which says whether a string is json without
+  building the whole thing first.
 - **A payload that holds no file is left alone.** Anything that decoded as json — a number, a string, `null`, an
   object without a `data` key — used to be collected as a file and to fall apart the moment something was read out of
   it. The same for a data uri: `Base64ToTempFile` read its matches before checking that the pattern matched at all.

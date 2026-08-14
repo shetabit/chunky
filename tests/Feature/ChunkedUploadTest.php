@@ -7,15 +7,8 @@ use Shetabit\Chunky\Classes\Collector;
 use Shetabit\Chunky\Classes\StreamIn;
 use Shetabit\Chunky\Tests\TestCase;
 
-/**
- * A whole file, cut into chunks, sent request by request and put together again —
- * the way a browser sends it.
- */
 final class ChunkedUploadTest extends TestCase
 {
-    /**
-     * The size of one chunk of the uploads below.
-     */
     private const int CHUNK_SIZE = 4096;
 
     /**
@@ -143,10 +136,6 @@ final class ChunkedUploadTest extends TestCase
         $this->assertSame('json', file_get_contents($this->path('json.txt')));
     }
 
-    /**
-     * The way the readme puts the files somewhere by hand instead of letting the
-     * incoming stream do it.
-     */
     public function testTheCollectedFilesCanBeStoredByHand() : void
     {
         $this->fakeUpload('media', 'hello', 'greeting.txt');
@@ -159,10 +148,6 @@ final class ChunkedUploadTest extends TestCase
         $this->assertSame('greeting.txt', $files[0]->name);
     }
 
-    /**
-     * Send a single chunk of a file the way a browser does, and let the incoming
-     * stream store it.
-     */
     private function sendChunk(string $name, string $chunk, int $index, int $size) : void
     {
         $start = $index * self::CHUNK_SIZE;

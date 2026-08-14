@@ -1,0 +1,24 @@
+# The example that comes with the package, see README.md next to this file.
+#
+#   docker compose up      start it on http://localhost:8080
+#   docker compose down    stop it again
+#
+# The Makefile wraps both as `make up` and `make down`. Another port can be used with
+# `PORT=9000 docker compose up`.
+#
+# The build context is the directory above this one, because the example installs the
+# package out of the checkout it sits in — see the `repositories` of composer.json.
+
+services:
+  example:
+    build:
+      context: ..
+      dockerfile: examples/Dockerfile
+    image: chunky-example
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT: "${PORT:-8080}"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace/examples

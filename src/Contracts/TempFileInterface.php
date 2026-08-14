@@ -11,9 +11,6 @@ namespace Shetabit\Chunky\Contracts;
 interface TempFileInterface extends FileInterface
 {
     /**
-     * Copy the content of this file into the file at the given path.
-     *
-     * @param string   $path   where the data is written to
      * @param int      $offset the byte of the destination the data is written at
      * @param int|null $length how many bytes of this file to copy, `null` copies all of them
      */

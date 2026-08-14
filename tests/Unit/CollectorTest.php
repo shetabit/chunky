@@ -150,10 +150,6 @@ final class CollectorTest extends TestCase
         $this->assertSame(['uploaded', 'base64', 'json'], $this->contentsOf($files));
     }
 
-    /**
-     * Request input that holds no file used to be collected all the same, and to
-     * fall apart the moment something was read out of it.
-     */
     public function testRequestInputThatHoldsNoFileIsLeftAlone() : void
     {
         $_REQUEST['media'] = ['hello', '42', 'null', '{"mime":"text/plain"}', ''];

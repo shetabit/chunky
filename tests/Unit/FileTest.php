@@ -110,10 +110,6 @@ final class FileTest extends TestCase
         $this->assertSame('aaaaXYaaaa', file_get_contents($this->path('write.txt')));
     }
 
-    /**
-     * The whole point of the package: chunks arrive in whatever order the client
-     * sends them, and every one of them has to land at its own offset.
-     */
     public function testItWritesChunksThatArriveOutOfOrderAtTheirOwnOffset() : void
     {
         $file = new File($this->path('assembled.bin'));
@@ -163,10 +159,6 @@ final class FileTest extends TestCase
         $this->assertSame(5, $file->getSize());
     }
 
-    /**
-     * `filesize()` is answered from a cache that a write of the very same file does
-     * not clear, so the size is read from the open handle instead.
-     */
     public function testTheSizeIsUpToDateRightAfterAWrite() : void
     {
         $file = new File($this->writeFile('size.txt', 'abcde'));

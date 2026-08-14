@@ -69,10 +69,6 @@ final class StreamInTest extends TestCase
         $this->assertCount(1, $stored);
     }
 
-    /**
-     * The name of a chunk is whatever the client sent, so a name that points out of
-     * the upload directory has to be cut down to its file name.
-     */
     #[DataProvider('namesThatPointSomewhereElse')]
     public function testItStoresAChunkUnderItsFileNameOnly(string $name, string|null $expected) : void
     {

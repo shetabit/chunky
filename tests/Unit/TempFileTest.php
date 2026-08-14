@@ -75,11 +75,6 @@ final class TempFileTest extends TestCase
         $this->assertSame("\0\0\0BBB", file_get_contents($this->path('saved.bin')));
     }
 
-    /**
-     * The offset says where the chunk belongs in the destination, so the chunk itself
-     * is always read from its own beginning. It used to be read from the offset as
-     * well, which left every chunk but the first one empty.
-     */
     public function testItReadsTheChunkFromItsOwnBeginning() : void
     {
         new TempFile($this->writeFile('chunk.bin', 'BBB'))->saveAs($this->path('saved.bin'), 1024);
@@ -102,9 +97,6 @@ final class TempFileTest extends TestCase
         $this->assertSame('abc', file_get_contents($this->path('saved.bin')));
     }
 
-    /**
-     * Chunks of one file, stored one after the other into the same destination.
-     */
     public function testChunksAreAssembledIntoOneFileWhateverOrderTheyArriveIn() : void
     {
         $destination = $this->path('assembled.bin');

@@ -20,10 +20,14 @@ This package supports `PHP 8.4+` and has no dependencies of its own, so it can b
 # List of contents
 
 - [Install](#install)
+- [A running example](#a-running-example)
 - [How to use](#how-to-use)
   - [Stream output](#stream-output)
   - [Stream input](#stream-input)
   - [The formats a chunk can be sent in](#the-formats-a-chunk-can-be-sent-in)
+  - [Sending chunks as plain uploads](#sending-chunks-as-plain-uploads)
+  - [Validations](#validations)
+  - [Events](#events)
   - [Collect and store input files](#collect-and-store-input-files)
   - [Create stream in Laravel Framework](#create-stream-in-laravel-framework)
     - [Download stream](#resumable-chunk-download-stream-example-in-laravel)
@@ -43,6 +47,20 @@ Via Composer
 ``` bash
 $ composer require shetabit/chunky
 ```
+
+## A running example
+
+There is a small application in [examples/](examples) that uploads a file chunk by chunk — with a pause and a resume
+— and hands it back out as a resumable download. It is an application of its own, with its own `composer.json` and
+its own container, and it is not installed with the package.
+
+```bash
+cd examples
+make up      # then open http://localhost:8080
+make down
+```
+
+See [examples/README.md](examples/README.md) for what to try and how the pieces fit together.
 
 ## how-to-use
 
@@ -106,12 +124,20 @@ $uploads = $inputStream->process();
 ```
 
 after uploading files, they will be in `$uploads` in array format: one entry per chunk, each of them holding the
-`path` the chunk was written to, the `range` of the destination it was written at (`[offset, length]`) and the `file`
-itself.
+`path` the chunk was written to, the `range` of the destination it was written at (`[offset, length]`), the `file`
+itself and how much of it is `assembled` so far.
+
+the **upload stream** is **multi-chunk** and **resumable**: an upload that was paused — or whose browser was closed —
+starts again at the byte it stopped on, because every chunk says which bytes of the file it holds and the server
+writes it exactly there.
+
+<p align="center"><img src="resources/images/chunky-file-upload.png?raw=true"></p>
 
 A chunk carries the bytes of the whole file it holds in its `range` (`1024-2047`), and that is where it is written —
 whatever order the chunks arrive in. The name a chunk is stored under is its own name with everything but the file
 name cut off it, so a client can not write outside of the upload directory.
+
+The screenshot above is [the example](examples) that comes with the package; `make up` in `examples/` runs it.
 
 #### The formats a chunk can be sent in
 
@@ -125,6 +151,148 @@ The same input can be sent in three formats, and all three of them are collected
 
 The `name`, the `range` and the `size` of the meta section of a data uri and of the `meta` of a json payload become
 the attributes of the file the package hands you.
+
+#### Sending chunks as plain uploads
+
+A data uri and a json payload carry the range and the size of their file in their meta section. A plain upload has
+nowhere to put them — `$_FILES` holds a name, a content type and the size of the chunk itself — so they travel next to
+the upload as fields of their own, and `ChunkedUploadCollector` puts them back together:
+
+```php
+# On the top of the file.
+use Shetabit\Chunky\Classes\ChunkedUploadCollector;
+use Shetabit\Chunky\Classes\StreamIn;
+...
+
+$stream = new StreamIn($inputName, $uploadPath, new ChunkedUploadCollector($inputName));
+
+$uploads = $stream->process();
+```
+
+One chunk per request, the fields hold one value each:
+
+```
+media: <the bytes of this chunk, with the name of the whole file>
+range: 262144-524287
+size:  1048576
+```
+
+Several files in one request — `name="media[]"`, `name="range[]"` — and they hold one value per chunk, in the order
+the files were sent in:
+
+```
+media[0]: <a chunk of the first file>    media[1]: <a chunk of the second file>
+range[0]: 0-262143                       range[1]: 262144-524287
+size[0]:  1048576                        size[1]:  524288
+```
+
+A field holding a single value belongs to every chunk of the request; a field holding a list belongs to the chunks one
+by one. What the request says wins over what a chunk says about itself — a client naming the size of the whole file is
+telling the server something `$_FILES` can not know, where the size of the chunk sits under the same name.
+
+`range` and `size` are read by default. Any attribute can be, and out of a field of another name:
+
+```php
+new ChunkedUploadCollector($inputName, ['range', 'size', 'name', 'mime']);
+new ChunkedUploadCollector($inputName, ['range' => 'chunk_range', 'size' => 'total_bytes']);
+```
+
+`name` and `mime` are not read by default on purpose: `$_FILES` holds both already, and a form that happens to have a
+field called `name` next to its upload would otherwise rename what it uploads. The fields are read from `$_POST`
+unless a third argument says where else to read them from.
+
+#### Validations
+
+An incoming stream can be told what it takes. Every chunk is checked before anything of it is written, and a request
+that carries a single chunk too many is turned away whole, so it leaves no half a file behind.
+
+```php
+# On the top of the file.
+use Shetabit\Chunky\Classes\StreamIn;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+use Shetabit\Chunky\Validations\Extension;
+use Shetabit\Chunky\Validations\MimeType;
+use Shetabit\Chunky\Validations\Size;
+...
+
+$stream = new StreamIn($inputName, $uploadPath, validations: [
+    new Size('5M', '1K'),                        // nothing over 5 MB, nothing under 1 KB
+    new Extension(['jpg', 'jpeg', 'png', 'gif']),
+    new MimeType(['image/jpeg', 'image/png', 'image/gif']),
+]);
+
+try {
+    $uploads = $stream->process();
+} catch (ValidationFailedException $exception) {
+    // every single thing that is wrong, one message per validation that failed
+    $errors = $exception->getErrors();
+}
+```
+
+They can be added afterwards as well, with `addValidation()` and `addValidations()`, and `$stream->validate()` runs
+them on their own — it looks a request over and writes nothing either way.
+
+| validation | what it checks |
+| --- | --- |
+| `Size($maximum, $minimum = 0)` | The size the client announced for the whole file, and the bytes of the chunk that arrived. Sizes are written as `5M`, `512 KB`, `1.5g` or a plain number of bytes. |
+| `Extension([...])` | What the file is **called**. Case is ignored and the dot is optional. |
+| `MimeType([...], detect: true)` | What the file **says it is** — and, for a chunk that holds the beginning of its file, what its bytes say it is. |
+
+A chunk out of the middle of a file has none of the bytes that give a file away, so `MimeType` can only look into the
+chunk that starts the file. `detect: false` turns the looking off and takes the client's word.
+
+Your own validation is any class that implements `Shetabit\Chunky\Contracts\ValidationInterface` — throw a
+`ValidationFailedException` to turn a file away:
+
+```php
+use Shetabit\Chunky\Contracts\FileInterface;
+use Shetabit\Chunky\Contracts\ValidationInterface;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+
+class NotOnAWeekend implements ValidationInterface
+{
+    public function validate(FileInterface $file): void
+    {
+        if (in_array(date('N'), ['6', '7'], true)) {
+            throw new ValidationFailedException('Come back on monday.', $file);
+        }
+    }
+}
+```
+
+#### Events
+
+An incoming stream calls you back around each of the two things it does to a chunk:
+
+```php
+$stream
+    ->beforeValidate(function (TempFileInterface $file): void {
+        // before the chunk is checked
+    })
+    ->afterValidate(function (TempFileInterface $file, array $errors): void {
+        // after it was checked, whether it passed or not
+    })
+    ->beforeUpload(function (TempFileInterface $file, string $path): void {
+        // before the chunk is written, and where it is written to
+    })
+    ->afterUpload(function (TempFileInterface $file, string $path, int $assembled): void {
+        // after it was written, and how much of the file is there now
+    });
+```
+
+`$assembled` is what makes the last chunk of a file recognisable, which is usually where the interesting part of an
+application starts:
+
+```php
+$stream->afterUpload(function (TempFileInterface $file, string $path, int $assembled): void {
+    if ($assembled === (int) $file->size) {
+        // the file is whole: put it in the database, hand it to a queue, ...
+    }
+});
+```
+
+The same number comes back from `process()`, under `assembled`, next to the `path`, the `range` and the `file` of
+every chunk that was stored.
 
 #### Collect and store input files
 
@@ -260,6 +428,7 @@ it:
 | `FileNotFoundException` | a file that has to be read is not there, or the upload directory does not exist |
 | `FileAccessException` | a file exists but could not be opened or written to |
 | `InvalidDataException` | a data uri or a json payload could not be decoded |
+| `ValidationFailedException` | a file was turned away by a validation; `getErrors()` says everything that is wrong and `getChunk()` hands back the file, when a single one was at fault |
 
 ## Testing
 

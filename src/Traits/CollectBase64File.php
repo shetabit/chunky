@@ -7,14 +7,9 @@ use Shetabit\Chunky\Contracts\TempFileInterface;
 
 trait CollectBase64File
 {
-    /**
-     * The name of the input the files are read from.
-     */
     abstract public function getInputName() : string|null;
 
     /**
-     * Collect every base64 data uri that was sent under the input's name.
-     *
      * @return list<TempFileInterface>
      */
     public function collectBase64Files() : array
@@ -32,17 +27,11 @@ trait CollectBase64File
         return $collectedFiles;
     }
 
-    /**
-     * Determine whether the given value is a base64 data uri.
-     */
     public function hasBase64Format(mixed $base64String) : bool
     {
         return is_string($base64String) && preg_match(Base64ToTempFile::PATTERN, $base64String) === 1;
     }
 
-    /**
-     * Turn a base64 data uri into a temporary file.
-     */
     public function generateBase64TempFile(string $uri) : TempFileInterface
     {
         return new Base64ToTempFile($uri)->toTempFile();

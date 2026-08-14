@@ -74,9 +74,6 @@ final class Base64ToTempFileTest extends TestCase
         $this->assertSame(5, $decoded['size']);
     }
 
-    /**
-     * A meta section can not smuggle a payload of its own past the one of the uri.
-     */
     public function testTheMetaSectionCanNotReplaceTheDataOfTheUri() : void
     {
         $uri = $this->dataUri('hello', 'text/plain', ['data' => 'nonsense']);

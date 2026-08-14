@@ -8,49 +8,28 @@ use Shetabit\Chunky\Exceptions\FileNotFoundException;
 
 class StreamOut implements StreamInterface
 {
-    /**
-     * How many bytes are written to the output at a time.
-     */
     public const int BUFFER_SIZE = 8192;
 
-    /**
-     * What a file whose type could not be determined is served as.
-     */
     public const string DEFAULT_MIME = 'application/octet-stream';
 
-    /**
-     * The name the file is offered under.
-     */
     protected string $name;
 
     /**
-     * What separates the parts of a response that holds more than one range.
+     * Separates the parts of a response holding more than one range.
      */
     protected string $boundary;
 
-    /**
-     * The size of the file in bytes.
-     */
     protected int $size;
 
-    /**
-     * The content type the file is served as.
-     */
     protected string $mime;
 
     /**
-     * The handle of the file that is being served.
-     *
      * @var resource
      */
     protected $file;
 
     /**
-     * StreamOut constructor.
-     *
-     * @param string $path       the file that is served
-     * @param int    $delay      microseconds to wait after every buffer, to throttle the stream
-     * @param int    $bufferSize how many bytes are written to the output at a time
+     * @param int $delay microseconds to wait after every buffer, to throttle the stream
      */
     public function __construct(
         protected string $path,
@@ -76,10 +55,7 @@ class StreamOut implements StreamInterface
     }
 
     /**
-     * Write the file — or the ranges of it that were asked for — to the output.
-     *
-     * @param string|null $rangeHeader the `Range` header of the request, read from the
-     *                                 request itself when it is not given
+     * @param string|null $rangeHeader read from the request itself when it is not given
      */
     public function process(string|null $rangeHeader = null) : void
     {
@@ -105,51 +81,34 @@ class StreamOut implements StreamInterface
         flush();
     }
 
-    /**
-     * The path of the file that is being served.
-     */
     public function getPath() : string
     {
         return $this->path;
     }
 
-    /**
-     * The name the file is offered under.
-     */
     public function getName() : string
     {
         return $this->name;
     }
 
-    /**
-     * The size of the file in bytes.
-     */
     public function getSize() : int
     {
         return $this->size;
     }
 
-    /**
-     * The content type the file is served as.
-     */
     public function getMime() : string
     {
         return $this->mime;
     }
 
-    /**
-     * What separates the parts of a response that holds more than one range.
-     */
     public function getBoundary() : string
     {
         return $this->boundary;
     }
 
     /**
-     * Read the ranges of a `Range` header.
-     *
-     * An empty array means that the whole file was asked for, `null` means that a
-     * range was asked for that can not be served.
+     * An empty array means the whole file was asked for, `null` means a range was
+     * asked for that can not be served.
      *
      * @return list<array{int, int}>|null
      */
@@ -157,8 +116,7 @@ class StreamOut implements StreamInterface
     {
         $header = trim((string) $header);
 
-        // Only byte ranges are supported. Any other unit is served as a whole file,
-        // which is what the specification asks for.
+        // Any unit other than bytes is served as a whole file, as the specification asks.
         if ($header === '' || stripos($header, 'bytes=') !== 0) {
             return [];
         }
@@ -176,9 +134,6 @@ class StreamOut implements StreamInterface
         return $ranges === [] ? null : $ranges;
     }
 
-    /**
-     * StreamOut destructor.
-     */
     public function __destruct()
     {
         if (is_resource($this->file)) {
@@ -187,8 +142,6 @@ class StreamOut implements StreamInterface
     }
 
     /**
-     * Read a single range of a `Range` header into its first and its last byte.
-     *
      * @return array{int, int}|null
      */
     protected function parseRange(string $range) : array|null
@@ -218,9 +171,6 @@ class StreamOut implements StreamInterface
         return $start > $end || $start >= $this->size ? null : [$start, $end];
     }
 
-    /**
-     * The `Range` header of the request that is being answered.
-     */
     protected function rangeHeaderOfRequest() : string|null
     {
         $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
@@ -234,9 +184,6 @@ class StreamOut implements StreamInterface
         return is_string($range) ? $range : null;
     }
 
-    /**
-     * Write the whole file to the output.
-     */
     protected function pushAll() : void
     {
         $this->sendHeader('Content-Type: '.$this->mime);
@@ -248,8 +195,6 @@ class StreamOut implements StreamInterface
     }
 
     /**
-     * Write a single range of the file to the output.
-     *
      * @param array{int, int} $range
      */
     protected function pushSingle(array $range) : void
@@ -268,8 +213,6 @@ class StreamOut implements StreamInterface
     }
 
     /**
-     * Write more than one range of the file to the output, as a multipart response.
-     *
      * @param list<array{int, int}> $ranges
      */
     protected function pushMulti(array $ranges) : void
@@ -302,9 +245,6 @@ class StreamOut implements StreamInterface
         echo "\r\n--{$this->boundary}--\r\n";
     }
 
-    /**
-     * Write the given number of bytes of the file to the output, buffer by buffer.
-     */
     protected function readBuffer(int $bytes) : void
     {
         $bytesLeft = $bytes;
@@ -324,10 +264,6 @@ class StreamOut implements StreamInterface
         }
     }
 
-    /**
-     * Hand what was written over to the client, and throttle the stream if it is
-     * asked to be throttled.
-     */
     protected function afterBuffer() : void
     {
         flush();
@@ -337,9 +273,6 @@ class StreamOut implements StreamInterface
         }
     }
 
-    /**
-     * Send the status line of the response.
-     */
     protected function sendStatus(int $code, string $text) : void
     {
         $protocol = $_SERVER['SERVER_PROTOCOL'] ?? null;
@@ -348,9 +281,6 @@ class StreamOut implements StreamInterface
         $this->sendHeader($statusLine, true, $code);
     }
 
-    /**
-     * Send a single header of the response.
-     */
     protected function sendHeader(string $header, bool $replace = true, int $responseCode = 0) : void
     {
         if (headers_sent()) {

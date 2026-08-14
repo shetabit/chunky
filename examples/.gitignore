@@ -1,0 +1,3 @@
+# The example installs its own dependencies.
+vendor/
+composer.lock

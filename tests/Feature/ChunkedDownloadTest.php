@@ -6,10 +6,6 @@ use Shetabit\Chunky\Classes\StreamIn;
 use Shetabit\Chunky\Tests\Fixtures\RecordingStreamOut;
 use Shetabit\Chunky\Tests\TestCase;
 
-/**
- * A file, downloaded the way a download manager downloads it: range by range, with
- * an interruption in the middle.
- */
 final class ChunkedDownloadTest extends TestCase
 {
     public function testAFileThatIsDownloadedRangeByRangeArrivesInOnePiece() : void
@@ -67,10 +63,6 @@ final class ChunkedDownloadTest extends TestCase
         $this->assertStringStartsWith('multipart/byteranges;', (string) $stream->header('Content-Type'));
     }
 
-    /**
-     * What the package is there for, from one end to the other: a file goes up chunk
-     * by chunk and comes back down range by range.
-     */
     public function testAFileThatWasUploadedInChunksIsDownloadedInRanges() : void
     {
         $contents = random_bytes(8192);

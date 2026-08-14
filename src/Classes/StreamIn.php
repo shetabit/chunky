@@ -4,46 +4,50 @@ namespace Shetabit\Chunky\Classes;
 
 use Shetabit\Chunky\Contracts\StreamInterface;
 use Shetabit\Chunky\Contracts\TempFileInterface;
+use Shetabit\Chunky\Contracts\ValidationInterface;
 use Shetabit\Chunky\Exceptions\FileNotFoundException;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+use Shetabit\Chunky\Traits\HasUploadEvents;
+use Shetabit\Chunky\Traits\Validates;
 
 class StreamIn implements StreamInterface
 {
-    /**
-     * What separates the two ends of a range: `0-1023`.
-     */
+    use HasUploadEvents;
+    use Validates;
+
     public const string RANGE_DELIMITER = '-';
 
-    /**
-     * Collects the chunks that were sent.
-     */
     protected Collector $collector;
 
     /**
-     * The chunks of the last run.
-     *
      * @var list<TempFileInterface>
      */
     protected array $files = [];
 
     /**
-     * StreamIn constructor.
-     *
-     * @param string         $inputName the name of the html input the chunks are sent under
-     * @param string         $path      the directory the chunks are assembled in
-     * @param Collector|null $collector collects the chunks, the one of the input's name by default
+     * @param string                    $inputName   the name of the html input the chunks are sent under
+     * @param string                    $path        the directory the chunks are assembled in
+     * @param Collector|null            $collector   collects the chunks, the one of the input's name by default
+     * @param list<ValidationInterface> $validations what every chunk has to pass before it is written
      */
     public function __construct(
         protected string $inputName,
         protected string $path,
         Collector|null $collector = null,
+        array $validations = [],
     ) {
         $this->collector = $collector ?? new Collector($inputName);
+
+        $this->addValidations($validations);
     }
 
     /**
-     * Store every chunk that was sent at its place in the file it belongs to.
+     * Nothing is written before everything has passed the validations, so a request
+     * carrying one chunk too large leaves no half a file behind.
      *
-     * @return list<array{path: string, range: array{int, int|null}, file: TempFileInterface}>
+     * @return list<array{path: string, range: array{int, int|null}, file: TempFileInterface, assembled: int}>
+     *
+     * @throws ValidationFailedException
      */
     public function process() : array
     {
@@ -51,26 +55,35 @@ class StreamIn implements StreamInterface
             throw new FileNotFoundException(sprintf('The upload directory "%s" does not exist.', $this->path));
         }
 
-        $storedFiles = [];
-
         $this->files = $this->collector->collect();
+
+        $this->validate();
+
+        $storedFiles = [];
 
         foreach ($this->files as $file) {
             $name = $this->getName($file);
 
-            if ($name === null) { // a chunk without a name has no file to belong to
+            if ($name === null) {
                 continue;
             }
 
             $range = $this->getRange($file);
             $path = $this->path.DIRECTORY_SEPARATOR.$name;
 
+            $this->dispatchEvent('beforeUpload', $file, $path);
+
             $file->saveAs($path, ...$range);
+
+            $assembled = new File($path)->getSize();
+
+            $this->dispatchEvent('afterUpload', $file, $path, $assembled);
 
             $storedFiles[] = [
                 'path' => $path,
                 'range' => $range,
                 'file' => $file,
+                'assembled' => $assembled,
             ];
         }
 
@@ -78,8 +91,6 @@ class StreamIn implements StreamInterface
     }
 
     /**
-     * The chunks of the last run.
-     *
      * @return list<TempFileInterface>
      */
     public function getFiles() : array
@@ -88,19 +99,42 @@ class StreamIn implements StreamInterface
     }
 
     /**
-     * The directory the chunks are assembled in.
+     * Collects the chunks first when that has not happened yet, so a request can be
+     * looked over without anything being written.
+     *
+     * @throws ValidationFailedException when a single chunk fails
      */
+    public function validate() : void
+    {
+        if ($this->files === []) {
+            $this->files = $this->collector->collect();
+        }
+
+        $errors = [];
+
+        foreach ($this->files as $file) {
+            $this->dispatchEvent('beforeValidate', $file);
+
+            $errorsOfFile = $this->validateFile($file);
+
+            $this->dispatchEvent('afterValidate', $file, $errorsOfFile);
+
+            $errors = array_merge($errors, $errorsOfFile);
+        }
+
+        if ($errors !== []) {
+            throw ValidationFailedException::fromErrors($errors);
+        }
+    }
+
     public function getPath() : string
     {
         return $this->path;
     }
 
     /**
-     * The name the given chunk is stored under.
-     *
-     * The name is whatever the client sent, so only the file name of it is used: a
-     * name like `../../config.php` would otherwise write outside of the directory
-     * the stream was pointed at.
+     * Only the file name of what the client sent is used: a name like
+     * `../../config.php` would otherwise write outside of the upload directory.
      */
     public function getName(TempFileInterface $file) : string|null
     {
@@ -116,11 +150,9 @@ class StreamIn implements StreamInterface
     }
 
     /**
-     * Where the given chunk belongs in the file that is being assembled.
-     *
      * The range of a chunk (`1024-2047`) names the bytes of the whole file it holds,
-     * so it becomes the offset the chunk is written at and the number of bytes that
-     * are taken from it. A chunk without a range is a whole file and goes to offset 0.
+     * so it becomes the offset it is written at and the number of bytes taken from it.
+     * A chunk without a range is a whole file and goes to offset 0.
      *
      * @return array{int, int|null}
      */
@@ -141,7 +173,7 @@ class StreamIn implements StreamInterface
         $start = (int) $parts[0];
         $end = (int) $parts[1];
 
-        if ($start < 0 || $end < $start) { // a range that makes no sense is no range
+        if ($start < 0 || $end < $start) {
             return [0, $size];
         }
 

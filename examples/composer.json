@@ -1,0 +1,25 @@
+{
+    "name": "shetabit/chunky-example",
+    "type": "project",
+    "description": "A runnable example of the shetabit/chunky package. Not part of the package itself.",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4",
+        "shetabit/chunky": "@dev"
+    },
+    "repositories": [
+        {
+            "//": "The example uses the checkout it sits in. Drop this to install the released package from packagist instead.",
+            "type": "path",
+            "url": "../",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
