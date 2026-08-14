@@ -49,5 +49,20 @@ Temporary Items
 # PhpStorm project's cache
 .idea
 
+# VSCode project's cache
+.vscode
+
+# phpunit cache
+.phpunit.cache
+.phpunit.result.cache
+
+# Local overrides of the tool configurations
+phpcs.xml
+phpstan.neon
+phpunit.xml.bak
+
 # Vendor directory
 vendor/
+
+# Composer.lock file
+composer.lock

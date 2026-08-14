@@ -3,119 +3,153 @@
 namespace Shetabit\Chunky\Classes;
 
 use Shetabit\Chunky\Contracts\FileInterface;
+use Shetabit\Chunky\Exceptions\FileAccessException;
+use Shetabit\Chunky\Exceptions\FileNotFoundException;
 
+/**
+ * @property mixed $name  the name of the file
+ * @property mixed $mime  the content type of the file
+ * @property mixed $size  the size of the whole file in bytes
+ * @property mixed $range the bytes of the whole file this one holds, `1024-2047`
+ */
 class File implements FileInterface
 {
     /**
-     * store file path
+     * The mode the file is opened in.
      *
-     * @var
+     * `c+` opens the file for reading and writing, creates it when it is not there
+     * yet and — unlike `w+` — keeps what is already in it. The write position can be
+     * moved freely, which is what writing a chunk at its own offset needs.
      */
-    protected $path;
+    protected const string MODE = 'c+b';
 
     /**
-     * currently open handles
-     *
-     * @var array
+     * Where the file is stored.
      */
-    protected $handles = [];
-
+    protected string $path = '';
 
     /**
-     * stores file's attribute information
-     * @example : name, mime, extension ,...
+     * The handle of the file while it is open.
      *
-     * @var array
+     * @var resource|null
      */
-    protected $attributes = [];
+    protected $handle;
+
+    /**
+     * The attribute information of the file.
+     *
+     * @example name, mime, size, range, ...
+     *
+     * @var array<string, mixed>
+     */
+    protected array $attributes = [];
 
     /**
      * File constructor.
-     *
-     * @param null $path
      */
-    public function __construct($path = null)
+    public function __construct(string $path = '')
     {
         $this->setPath($path);
     }
 
     /**
-     * Set or change the file's path
-     *
-     * @param $path
-     * @return mixed
+     * Retrieve the path of the file.
      */
-    protected function setPath($path)
-    {
-        $this->path = $path;
-
-        return $this;
-    }
-
-    /**
-     * Retrieve file's path
-     *
-     * @return mixed
-     */
-    public function getPath()
+    public function getPath() : string
     {
         return $this->path;
     }
 
     /**
-     * Create (or overwrite) new file
-     *
-     * @param $data
-     * @return $this
+     * Determine whether the file exists on disk.
      */
-    public function create($data)
+    public function exists() : bool
     {
-        $handle = $this->open('w+');
+        return $this->path !== '' && is_file($this->path);
+    }
 
-        fwrite($handle, $data);
+    /**
+     * The size of the file in bytes.
+     *
+     * It is read from the open handle instead of `filesize()`, which is answered from
+     * a cache that a write of this very file does not clear.
+     */
+    public function getSize() : int
+    {
+        if (! $this->exists()) {
+            return 0;
+        }
+
+        $stat = fstat($this->open());
+
+        return $stat === false ? 0 : $stat['size'];
+    }
+
+    /**
+     * Create (or overwrite) the file with the given data.
+     */
+    public function create(string $data) : static
+    {
+        $handle = $this->open();
+
+        ftruncate($handle, 0);
+        rewind($handle);
+        $this->put($handle, $data);
 
         return $this;
     }
 
     /**
-     * read file's data
+     * Read (a part of) the file.
      *
-     * @param int $offset
-     * @param null $length
-     * @return bool|string
+     * @param int      $offset the byte the reading starts at
+     * @param int|null $length how many bytes to read, `null` reads until the end of the file
      */
-    public function read($offset = 0, $length = null)
+    public function read(int $offset = 0, int|null $length = null) : string
     {
-        $offset = $offset ?? 0;
-        $fileSize = filesize($this->getPath());
-        $length = ($length<=0 || $length>$fileSize) ? $fileSize : $length;
-
-        $handle = $this->open('r+');
-
-        if ($offset) {
-            fseek($handle, $offset);
+        if (! $this->exists()) {
+            throw FileNotFoundException::forPath($this->path);
         }
 
-        return fread($handle, $length);
+        $size = $this->getSize();
+        $offset = max(0, $offset);
+
+        // A length that is not given, not positive or longer than the file itself
+        // reads whatever is left of the file.
+        if ($length === null || $length <= 0 || $length > $size) {
+            $length = $size;
+        }
+
+        $length = min($length, $size - $offset);
+
+        if ($length <= 0) { // the offset is at (or past) the end of the file
+            return '';
+        }
+
+        $handle = $this->open();
+
+        fseek($handle, $offset);
+
+        return (string) fread($handle, $length);
     }
 
     /**
-     * write data in file
+     * Write data into the file, starting at the given byte.
      *
-     * @param $data
-     * @param int $offset
-     * @return $this
+     * Everything that is already there stays where it is: a write past the end of the
+     * file leaves a gap, which is what an upload that receives its chunks out of order
+     * relies on.
      */
-    public function write($data, $offset = 0)
+    public function write(string $data, int $offset = 0) : static
     {
-        $handle = $this->open('a');
-
-        fseek($handle, (int) $offset, SEEK_SET);
+        $handle = $this->open();
 
         // lock stream
         flock($handle, LOCK_EX);
 
-        fwrite($handle, $data);
+        fseek($handle, max(0, $offset));
+
+        $this->put($handle, $data);
 
         // unlock stream
         flock($handle, LOCK_UN);
@@ -124,94 +158,73 @@ class File implements FileInterface
     }
 
     /**
-     * Remove file if already exists
-     *
-     * @return $this
+     * Close the handle of the file, if it is open.
      */
-    public function remove()
+    public function close() : static
     {
-        $path = $this->getPath();
+        if (is_resource($this->handle)) {
+            fclose($this->handle);
+        }
 
-        if (file_exists($path)) {
-            unlink($path);
+        $this->handle = null;
+
+        return $this;
+    }
+
+    /**
+     * Remove the file, if it exists.
+     */
+    public function remove() : static
+    {
+        $this->close();
+
+        if ($this->exists()) {
+            unlink($this->path);
         }
 
         return $this;
     }
 
     /**
-     * Open file and create a new handle
-     *
-     * @param $mode
-     * @return bool|resource
+     * Determine whether an attribute information exists.
      */
-    protected function open($mode)
-    {
-         $handle = fopen($this->getPath(), $mode);
-
-         array_push($this->handles, $handle);
-
-        return $handle;
-    }
-
-    /**
-     * Close given file handles
-     *
-     * @param $handle
-     * @return $this
-     */
-    protected function close($handle)
-    {
-        fclose($handle);
-
-        return $this;
-    }
-
-    /**
-     * Close all file handles
-     *
-     * @return $this
-     */
-    protected function closeAll()
-    {
-        foreach ($this->handles as $handle) {
-            $this->close($handle);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Determine if an attribute information exists
-     *
-     * @param $name
-     * @return bool
-     */
-    public function __isset($name)
+    public function __isset(string $name) : bool
     {
         return isset($this->attributes[$name]);
     }
 
     /**
-     * Set an attribute information
-     *
-     * @param $name
-     * @param $value
+     * Set an attribute information.
      */
-    public function __set($name, $value)
+    public function __set(string $name, mixed $value) : void
     {
         $this->attributes[$name] = $value;
     }
 
     /**
-     * Retrieve an attribute information
-     *
-     * @param $name
-     * @return mixed|null
+     * Retrieve an attribute information.
      */
-    public function __get($name)
+    public function __get(string $name) : mixed
     {
         return $this->attributes[$name] ?? null;
+    }
+
+    /**
+     * Remove an attribute information.
+     */
+    public function __unset(string $name) : void
+    {
+        unset($this->attributes[$name]);
+    }
+
+    /**
+     * Retrieve every attribute information of the file.
+     *
+     * @return array<string, mixed>
+     */
+    public function getAttributes() : array
+    {
+        return $this->attributes;
     }
 
     /**
@@ -219,6 +232,61 @@ class File implements FileInterface
      */
     public function __destruct()
     {
-        $this->closeAll();
+        $this->close();
+    }
+
+    /**
+     * Set or change the path of the file.
+     */
+    protected function setPath(string $path) : static
+    {
+        if ($path !== $this->path) { // the handle that is open belongs to the old path
+            $this->close();
+        }
+
+        $this->path = $path;
+
+        return $this;
+    }
+
+    /**
+     * Open the file and keep its handle around.
+     *
+     * A single handle is kept and reused, so that repeated reads and writes of the
+     * same file neither reopen it nor leave a handle behind.
+     *
+     * @return resource
+     */
+    protected function open()
+    {
+        if (is_resource($this->handle)) {
+            return $this->handle;
+        }
+
+        if ($this->path === '') {
+            throw new FileAccessException('The file has no path to be opened under.');
+        }
+
+        $handle = @fopen($this->path, static::MODE);
+
+        if ($handle === false) {
+            throw FileAccessException::forPath($this->path);
+        }
+
+        return $this->handle = $handle;
+    }
+
+    /**
+     * Write data through the given handle and make sure it reaches the file.
+     *
+     * @param resource $handle
+     */
+    protected function put($handle, string $data) : void
+    {
+        if (fwrite($handle, $data) === false) {
+            throw new FileAccessException(sprintf('The file "%s" could not be written to.', $this->path));
+        }
+
+        fflush($handle);
     }
 }

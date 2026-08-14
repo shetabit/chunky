@@ -3,58 +3,75 @@
 namespace Shetabit\Chunky\Classes;
 
 use Shetabit\Chunky\Contracts\TempFileInterface;
+use Shetabit\Chunky\Exceptions\FileAccessException;
 
 class TempFile extends File implements TempFileInterface
 {
     /**
-     * Create (or overwrite) new temp file
+     * Create (or overwrite) the temporary file with the given data.
      *
-     * @param $data
-     * @return $this
+     * A temporary file that has no path of its own receives one here, and the file
+     * behind it is removed by PHP as soon as its handle is closed.
      */
-    public function create($data)
+    public function create(string $data) : static
     {
-        $handle = $this->openTemporary();
+        if ($this->getPath() === '') {
+            $this->openTemporary();
+        }
 
-        fwrite($handle, $data);
-
-        return $this;
+        return parent::create($data);
     }
 
     /**
-     * Store file in the given path
+     * Copy the content of this file into the file at the given path.
      *
-     * @param $path
-     * @param int $offset
-     * @param null $length
-     * @return $this
+     * This file holds a chunk, `$offset` says where that chunk belongs in the file
+     * that is being assembled: the chunk is always read from its own beginning and
+     * written at the offset of the destination.
+     *
+     * @param string   $path   where the data is written to
+     * @param int      $offset the byte of the destination the data is written at
+     * @param int|null $length how many bytes of this file to copy, `null` copies all of them
      */
-    public function saveAs($path, $offset = 0, $length = null)
+    public function saveAs(string $path, int $offset = 0, int|null $length = null) : static
     {
-        $resource = $this->read($offset, $length);
+        $data = $this->read(0, $length);
 
-        $destinationFile = new File($path);
-
-        $destinationFile->write($resource, $offset);
+        new File($path)->write($data, $offset)->close();
 
         return $this;
     }
 
     /**
      * Open a file in temporary mode.
-     * temporary files will be removed automatically as the script ends
      *
-     * @return bool|resource
+     * Temporary files are removed automatically as soon as their handle is closed,
+     * which happens at the latest when the script ends.
+     *
+     * @return resource
      */
     protected function openTemporary()
     {
+        if (is_resource($this->handle)) {
+            return $this->handle;
+        }
+
         $handle = tmpfile();
 
-        $meta = stream_get_meta_data($handle);
-        $this->setPath($meta['uri']);
+        if ($handle === false) {
+            throw new FileAccessException('A temporary file could not be created.');
+        }
 
-        array_push($this->handles, $handle);
+        $uri = stream_get_meta_data($handle)['uri'] ?? null;
 
-        return $handle;
+        if (! is_string($uri) || $uri === '') {
+            fclose($handle);
+
+            throw new FileAccessException('The temporary file that was created has no path.');
+        }
+
+        $this->setPath($uri);
+
+        return $this->handle = $handle;
     }
 }
