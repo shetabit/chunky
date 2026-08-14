@@ -1,0 +1,13 @@
+parameters:
+    level: 7
+    paths:
+        - src
+
+    # A file carries the attribute information that came in with it — its name, its
+    # mime type, the range of the file it holds — and every one of them is read and
+    # written through `__get()` and `__set()`. Which ones there are is up to the
+    # client that sent them, so they are not a fixed set of properties.
+    universalObjectCratesClasses:
+        - Shetabit\Chunky\Contracts\FileInterface
+
+    reportUnmatchedIgnoredErrors: true

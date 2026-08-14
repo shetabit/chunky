@@ -8,34 +8,56 @@ use Shetabit\Chunky\Contracts\TempFileInterface;
 
 abstract class TempFileAdapterAbstract implements TempFileAdapterInterface
 {
-    protected $encodedData;
+    /**
+     * The encoded payload the adapter reads.
+     */
+    protected string|null $encodedData = null;
 
-    public function __construct($encodedData = null)
+    /**
+     * TempFileAdapterAbstract constructor.
+     */
+    public function __construct(string|null $encodedData = null)
     {
         $this->setEncodedData($encodedData);
     }
 
-    public function setEncodedData($data)
+    /**
+     * Set the encoded payload the adapter reads.
+     */
+    public function setEncodedData(string|null $data) : static
     {
         $this->encodedData = $data;
+
+        return $this;
     }
 
-    public function getEncodedData()
+    /**
+     * Retrieve the encoded payload the adapter reads.
+     */
+    public function getEncodedData() : string|null
     {
         return $this->encodedData;
     }
 
-    abstract public function decodeData();
+    /**
+     * Decode the payload into the content of the file and its attributes.
+     *
+     * @return array{data: string, ...<string, mixed>}
+     */
+    abstract public function decodeData() : array;
 
-    public function toTempFile(): TempFileInterface
+    /**
+     * Write the decoded payload into a temporary file.
+     */
+    public function toTempFile() : TempFileInterface
     {
-        $tempFile = new TempFile;
-
         $decoded = $this->decodeData();
 
-        foreach ($decoded as $k => $v) {
-            if($k !== 'data') {
-                $tempFile->$k = $v;
+        $tempFile = new TempFile();
+
+        foreach ($decoded as $key => $value) {
+            if ($key !== 'data') {
+                $tempFile->{(string) $key} = $value;
             }
         }
 
