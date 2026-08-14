@@ -17,11 +17,6 @@
             }
         }
     ],
-    "autoload": {
-        "psr-4": {
-            "Chunky\\Example\\": "src"
-        }
-    },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {

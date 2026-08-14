@@ -42,7 +42,7 @@ trait CollectJsonFile
      */
     public function hasJsonFormat(mixed $jsonString) : bool
     {
-        if (! is_string($jsonString)) {
+        if (! is_string($jsonString) || ! json_validate($jsonString)) {
             return false;
         }
 

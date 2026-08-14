@@ -11,7 +11,7 @@
 
 require dirname(__DIR__).'/bootstrap.php';
 
-use Chunky\Example\ChunkedUploadCollector;
+use Shetabit\Chunky\Classes\ChunkedUploadCollector;
 use Shetabit\Chunky\Classes\StreamIn;
 use Shetabit\Chunky\Contracts\TempFileInterface;
 use Shetabit\Chunky\Exceptions\ChunkyException;

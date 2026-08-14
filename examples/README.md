@@ -58,7 +58,6 @@ public/download.php  StreamOut — answers the Range header of a download
 public/files.php     what is in the upload directory, and how much of it (used to resume)
 public/delete.php    throws an uploaded file away
 public/formats.php   the three formats a file can be sent in
-src/                 ChunkedUploadCollector, the only glue the example needs
 uploads/             where the files end up
 ```
 
@@ -72,7 +71,7 @@ range: 262144-524287
 size:  1048576
 ```
 
-The server puts them together and lets the package do the rest:
+The server hands those to the package and does nothing else:
 
 ```php
 $stream = new StreamIn('media', __DIR__.'/../uploads', new ChunkedUploadCollector('media'), [
@@ -82,14 +81,12 @@ $stream = new StreamIn('media', __DIR__.'/../uploads', new ChunkedUploadCollecto
 $stored = $stream->process();
 ```
 
-`ChunkedUploadCollector` exists because `$_FILES` has nowhere to keep either of them — it holds a name, a type and the
-size of the chunk itself, and that is all. A base64 data uri and a json payload carry both in their own meta section,
-so they need no fields next to them; see `formats.php`.
+`ChunkedUploadCollector` reads the two fields out of the request, because `$_FILES` has nowhere to keep them. A base64
+data uri and a json payload carry both in their own meta section, so they need no fields next to them; see
+`formats.php`.
 
 The `size` is what the `Size` validation reads, so a file that is too big is turned away at its first chunk instead of
-after its last — send a chunk with a `size` of 300 MB and the request comes back `422` with the reason. It is also
-what tells a whole file from a piece of one, so leaving it out lets a client upload a file of any size one small
-chunk at a time.
+after its last — send a chunk with a `size` of 300 MB and the request comes back `422` with the reason.
 
 `upload.php` also hangs an `afterUpload` callback on the stream, which is where an application notices that the last
 chunk of a file has arrived. The response says so in its `completed` list.

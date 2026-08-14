@@ -25,6 +25,7 @@ This package supports `PHP 8.4+` and has no dependencies of its own, so it can b
   - [Stream output](#stream-output)
   - [Stream input](#stream-input)
   - [The formats a chunk can be sent in](#the-formats-a-chunk-can-be-sent-in)
+  - [Sending chunks as plain uploads](#sending-chunks-as-plain-uploads)
   - [Validations](#validations)
   - [Events](#events)
   - [Collect and store input files](#collect-and-store-input-files)
@@ -142,6 +143,55 @@ The same input can be sent in three formats, and all three of them are collected
 
 The `name`, the `range` and the `size` of the meta section of a data uri and of the `meta` of a json payload become
 the attributes of the file the package hands you.
+
+#### Sending chunks as plain uploads
+
+A data uri and a json payload carry the range and the size of their file in their meta section. A plain upload has
+nowhere to put them — `$_FILES` holds a name, a content type and the size of the chunk itself — so they travel next to
+the upload as fields of their own, and `ChunkedUploadCollector` puts them back together:
+
+```php
+# On the top of the file.
+use Shetabit\Chunky\Classes\ChunkedUploadCollector;
+use Shetabit\Chunky\Classes\StreamIn;
+...
+
+$stream = new StreamIn($inputName, $uploadPath, new ChunkedUploadCollector($inputName));
+
+$uploads = $stream->process();
+```
+
+One chunk per request, the fields hold one value each:
+
+```
+media: <the bytes of this chunk, with the name of the whole file>
+range: 262144-524287
+size:  1048576
+```
+
+Several files in one request — `name="media[]"`, `name="range[]"` — and they hold one value per chunk, in the order
+the files were sent in:
+
+```
+media[0]: <a chunk of the first file>    media[1]: <a chunk of the second file>
+range[0]: 0-262143                       range[1]: 262144-524287
+size[0]:  1048576                        size[1]:  524288
+```
+
+A field holding a single value belongs to every chunk of the request; a field holding a list belongs to the chunks one
+by one. What the request says wins over what a chunk says about itself — a client naming the size of the whole file is
+telling the server something `$_FILES` can not know, where the size of the chunk sits under the same name.
+
+`range` and `size` are read by default. Any attribute can be, and out of a field of another name:
+
+```php
+new ChunkedUploadCollector($inputName, ['range', 'size', 'name', 'mime']);
+new ChunkedUploadCollector($inputName, ['range' => 'chunk_range', 'size' => 'total_bytes']);
+```
+
+`name` and `mime` are not read by default on purpose: `$_FILES` holds both already, and a form that happens to have a
+field called `name` next to its upload would otherwise rename what it uploads. The fields are read from `$_POST`
+unless a third argument says where else to read them from.
 
 #### Validations
 
