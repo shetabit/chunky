@@ -20,6 +20,7 @@ This package supports `PHP 8.4+` and has no dependencies of its own, so it can b
 # List of contents
 
 - [Install](#install)
+- [A running example](#a-running-example)
 - [How to use](#how-to-use)
   - [Stream output](#stream-output)
   - [Stream input](#stream-input)
@@ -43,6 +44,20 @@ Via Composer
 ``` bash
 $ composer require shetabit/chunky
 ```
+
+## A running example
+
+There is a small application in [examples/](examples) that uploads a file chunk by chunk — with a pause and a resume
+— and hands it back out as a resumable download. It is an application of its own, with its own `composer.json` and
+its own container, and it is not installed with the package.
+
+```bash
+cd examples
+make up      # then open http://localhost:8080
+make down
+```
+
+See [examples/README.md](examples/README.md) for what to try and how the pieces fit together.
 
 ## how-to-use
 
