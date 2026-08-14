@@ -4,10 +4,17 @@ namespace Shetabit\Chunky\Classes;
 
 use Shetabit\Chunky\Contracts\StreamInterface;
 use Shetabit\Chunky\Contracts\TempFileInterface;
+use Shetabit\Chunky\Contracts\ValidationInterface;
 use Shetabit\Chunky\Exceptions\FileNotFoundException;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+use Shetabit\Chunky\Traits\HasUploadEvents;
+use Shetabit\Chunky\Traits\Validates;
 
 class StreamIn implements StreamInterface
 {
+    use HasUploadEvents;
+    use Validates;
+
     /**
      * What separates the two ends of a range: `0-1023`.
      */
@@ -28,22 +35,31 @@ class StreamIn implements StreamInterface
     /**
      * StreamIn constructor.
      *
-     * @param string         $inputName the name of the html input the chunks are sent under
-     * @param string         $path      the directory the chunks are assembled in
-     * @param Collector|null $collector collects the chunks, the one of the input's name by default
+     * @param string                    $inputName   the name of the html input the chunks are sent under
+     * @param string                    $path        the directory the chunks are assembled in
+     * @param Collector|null            $collector   collects the chunks, the one of the input's name by default
+     * @param list<ValidationInterface> $validations what every chunk has to pass before it is written
      */
     public function __construct(
         protected string $inputName,
         protected string $path,
         Collector|null $collector = null,
+        array $validations = [],
     ) {
         $this->collector = $collector ?? new Collector($inputName);
+
+        $this->addValidations($validations);
     }
 
     /**
      * Store every chunk that was sent at its place in the file it belongs to.
      *
-     * @return list<array{path: string, range: array{int, int|null}, file: TempFileInterface}>
+     * Nothing is written before everything has passed the validations: a request that
+     * carries one chunk too large leaves no half a file behind.
+     *
+     * @return list<array{path: string, range: array{int, int|null}, file: TempFileInterface, assembled: int}>
+     *
+     * @throws ValidationFailedException
      */
     public function process() : array
     {
@@ -51,9 +67,11 @@ class StreamIn implements StreamInterface
             throw new FileNotFoundException(sprintf('The upload directory "%s" does not exist.', $this->path));
         }
 
-        $storedFiles = [];
-
         $this->files = $this->collector->collect();
+
+        $this->validate();
+
+        $storedFiles = [];
 
         foreach ($this->files as $file) {
             $name = $this->getName($file);
@@ -65,12 +83,21 @@ class StreamIn implements StreamInterface
             $range = $this->getRange($file);
             $path = $this->path.DIRECTORY_SEPARATOR.$name;
 
+            $this->dispatchEvent('beforeUpload', $file, $path);
+
             $file->saveAs($path, ...$range);
+
+            // How much of the file is on disk now. A run that finds its own total
+            // here knows that the last chunk has arrived.
+            $assembled = new File($path)->getSize();
+
+            $this->dispatchEvent('afterUpload', $file, $path, $assembled);
 
             $storedFiles[] = [
                 'path' => $path,
                 'range' => $range,
                 'file' => $file,
+                'assembled' => $assembled,
             ];
         }
 
@@ -85,6 +112,37 @@ class StreamIn implements StreamInterface
     public function getFiles() : array
     {
         return $this->files;
+    }
+
+    /**
+     * Run the validations against every chunk that was collected.
+     *
+     * The chunks are collected first when that has not happened yet, so that a
+     * request can be looked over without anything being written.
+     *
+     * @throws ValidationFailedException when a single one of them fails
+     */
+    public function validate() : void
+    {
+        if ($this->files === []) {
+            $this->files = $this->collector->collect();
+        }
+
+        $errors = [];
+
+        foreach ($this->files as $file) {
+            $this->dispatchEvent('beforeValidate', $file);
+
+            $errorsOfFile = $this->validateFile($file);
+
+            $this->dispatchEvent('afterValidate', $file, $errorsOfFile);
+
+            $errors = array_merge($errors, $errorsOfFile);
+        }
+
+        if ($errors !== []) {
+            throw ValidationFailedException::fromErrors($errors);
+        }
     }
 
     /**

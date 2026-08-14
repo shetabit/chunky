@@ -58,30 +58,41 @@ public/download.php  StreamOut — answers the Range header of a download
 public/files.php     what is in the upload directory, and how much of it (used to resume)
 public/delete.php    throws an uploaded file away
 public/formats.php   the three formats a file can be sent in
-src/                 RangeAwareCollector, the only glue the example needs
+src/                 ChunkedUploadCollector, the only glue the example needs
 uploads/             where the files end up
 ```
 
-The whole protocol is one extra field. Every request carries the chunk itself and a `range` saying which bytes of the
-whole file it holds:
+The whole protocol is two extra fields. Every request carries the chunk itself, the `range` saying which bytes of the
+whole file it holds, and the `size` of that whole file:
 
 ```
 POST /upload.php
 media: <the bytes of this chunk, with the name of the whole file>
 range: 262144-524287
+size:  1048576
 ```
 
-The server puts the two together and lets the package do the rest:
+The server puts them together and lets the package do the rest:
 
 ```php
-$stream = new StreamIn('media', __DIR__.'/../uploads', new RangeAwareCollector('media'));
+$stream = new StreamIn('media', __DIR__.'/../uploads', new ChunkedUploadCollector('media'), [
+    new Size('200M'),
+]);
 
 $stored = $stream->process();
 ```
 
-`RangeAwareCollector` exists because `$_FILES` has nowhere to keep a range — it holds a name, a type and a size, and
-that is all. A base64 data uri and a json payload carry theirs in their own meta section, so they need no field next
-to them; see `formats.php`.
+`ChunkedUploadCollector` exists because `$_FILES` has nowhere to keep either of them — it holds a name, a type and the
+size of the chunk itself, and that is all. A base64 data uri and a json payload carry both in their own meta section,
+so they need no fields next to them; see `formats.php`.
+
+The `size` is what the `Size` validation reads, so a file that is too big is turned away at its first chunk instead of
+after its last — send a chunk with a `size` of 300 MB and the request comes back `422` with the reason. It is also
+what tells a whole file from a piece of one, so leaving it out lets a client upload a file of any size one small
+chunk at a time.
+
+`upload.php` also hangs an `afterUpload` callback on the stream, which is where an application notices that the last
+chunk of a file has arrived. The response says so in its `completed` list.
 
 Chunks may arrive in any order, and one that arrives twice simply overwrites itself, so a client that resends the
 chunk it is unsure about costs nothing but the bytes.

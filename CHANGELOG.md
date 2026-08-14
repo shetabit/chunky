@@ -7,7 +7,20 @@ Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) princip
 ## Unreleased
 
 ### Added
-- A test suite of 179 tests covering every class of the package: the file, the temporary file, the two adapters, the
+- **Validations.** An incoming stream can be told what it takes, and every chunk is checked before anything of it is
+  written: `Validations\Size` (by the size the client announced for the whole file, and by the bytes of the chunk that
+  arrived, written as `5M`, `512 KB` or a number), `Validations\Extension` (what a file is called) and
+  `Validations\MimeType` (what it says it is, and — for the chunk that holds the beginning of a file — what its bytes
+  say it is). `Contracts\ValidationInterface` is there to write your own. A request that carries a single chunk too
+  many is turned away whole, so it leaves no half a file behind, and `ValidationFailedException::getErrors()` says
+  everything that is wrong at once.
+- **Events.** `beforeValidate()`, `afterValidate()`, `beforeUpload()` and `afterUpload()` on the incoming stream.
+  `afterUpload()` is handed how much of the file is on disk, which is how a run recognises the last chunk of a file.
+- `StreamIn::validate()`, which looks a request over and writes nothing, and a fourth constructor argument holding the
+  validations.
+- The entries `StreamIn::process()` returns carry an `assembled` key: the size of the file after that chunk was
+  written.
+- A test suite of 232 tests covering every class of the package: the file, the temporary file, the two adapters, the
   collector and both streams. Next to the unit tests there are feature tests that send a file chunk by chunk — in
   every order the chunks can arrive in, and in all three formats the package reads — and download it again range by
   range, with an interruption in the middle.

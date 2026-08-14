@@ -25,6 +25,8 @@ This package supports `PHP 8.4+` and has no dependencies of its own, so it can b
   - [Stream output](#stream-output)
   - [Stream input](#stream-input)
   - [The formats a chunk can be sent in](#the-formats-a-chunk-can-be-sent-in)
+  - [Validations](#validations)
+  - [Events](#events)
   - [Collect and store input files](#collect-and-store-input-files)
   - [Create stream in Laravel Framework](#create-stream-in-laravel-framework)
     - [Download stream](#resumable-chunk-download-stream-example-in-laravel)
@@ -140,6 +142,99 @@ The same input can be sent in three formats, and all three of them are collected
 
 The `name`, the `range` and the `size` of the meta section of a data uri and of the `meta` of a json payload become
 the attributes of the file the package hands you.
+
+#### Validations
+
+An incoming stream can be told what it takes. Every chunk is checked before anything of it is written, and a request
+that carries a single chunk too many is turned away whole, so it leaves no half a file behind.
+
+```php
+# On the top of the file.
+use Shetabit\Chunky\Classes\StreamIn;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+use Shetabit\Chunky\Validations\Extension;
+use Shetabit\Chunky\Validations\MimeType;
+use Shetabit\Chunky\Validations\Size;
+...
+
+$stream = new StreamIn($inputName, $uploadPath, validations: [
+    new Size('5M', '1K'),                        // nothing over 5 MB, nothing under 1 KB
+    new Extension(['jpg', 'jpeg', 'png', 'gif']),
+    new MimeType(['image/jpeg', 'image/png', 'image/gif']),
+]);
+
+try {
+    $uploads = $stream->process();
+} catch (ValidationFailedException $exception) {
+    // every single thing that is wrong, one message per validation that failed
+    $errors = $exception->getErrors();
+}
+```
+
+They can be added afterwards as well, with `addValidation()` and `addValidations()`, and `$stream->validate()` runs
+them on their own — it looks a request over and writes nothing either way.
+
+| validation | what it checks |
+| --- | --- |
+| `Size($maximum, $minimum = 0)` | The size the client announced for the whole file, and the bytes of the chunk that arrived. Sizes are written as `5M`, `512 KB`, `1.5g` or a plain number of bytes. |
+| `Extension([...])` | What the file is **called**. Case is ignored and the dot is optional. |
+| `MimeType([...], detect: true)` | What the file **says it is** — and, for a chunk that holds the beginning of its file, what its bytes say it is. |
+
+A chunk out of the middle of a file has none of the bytes that give a file away, so `MimeType` can only look into the
+chunk that starts the file. `detect: false` turns the looking off and takes the client's word.
+
+Your own validation is any class that implements `Shetabit\Chunky\Contracts\ValidationInterface` — throw a
+`ValidationFailedException` to turn a file away:
+
+```php
+use Shetabit\Chunky\Contracts\FileInterface;
+use Shetabit\Chunky\Contracts\ValidationInterface;
+use Shetabit\Chunky\Exceptions\ValidationFailedException;
+
+class NotOnAWeekend implements ValidationInterface
+{
+    public function validate(FileInterface $file): void
+    {
+        if (in_array(date('N'), ['6', '7'], true)) {
+            throw new ValidationFailedException('Come back on monday.', $file);
+        }
+    }
+}
+```
+
+#### Events
+
+An incoming stream calls you back around each of the two things it does to a chunk:
+
+```php
+$stream
+    ->beforeValidate(function (TempFileInterface $file): void {
+        // before the chunk is checked
+    })
+    ->afterValidate(function (TempFileInterface $file, array $errors): void {
+        // after it was checked, whether it passed or not
+    })
+    ->beforeUpload(function (TempFileInterface $file, string $path): void {
+        // before the chunk is written, and where it is written to
+    })
+    ->afterUpload(function (TempFileInterface $file, string $path, int $assembled): void {
+        // after it was written, and how much of the file is there now
+    });
+```
+
+`$assembled` is what makes the last chunk of a file recognisable, which is usually where the interesting part of an
+application starts:
+
+```php
+$stream->afterUpload(function (TempFileInterface $file, string $path, int $assembled): void {
+    if ($assembled === (int) $file->size) {
+        // the file is whole: put it in the database, hand it to a queue, ...
+    }
+});
+```
+
+The same number comes back from `process()`, under `assembled`, next to the `path`, the `range` and the `file` of
+every chunk that was stored.
 
 #### Collect and store input files
 
@@ -275,6 +370,7 @@ it:
 | `FileNotFoundException` | a file that has to be read is not there, or the upload directory does not exist |
 | `FileAccessException` | a file exists but could not be opened or written to |
 | `InvalidDataException` | a data uri or a json payload could not be decoded |
+| `ValidationFailedException` | a file was turned away by a validation; `getErrors()` says everything that is wrong and `getChunk()` hands back the file, when a single one was at fault |
 
 ## Testing
 

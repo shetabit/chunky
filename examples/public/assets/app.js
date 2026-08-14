@@ -66,6 +66,10 @@ async function sendChunk(file, start) {
     // Which bytes of the whole file this chunk holds. The server writes it there.
     body.append('range', `${start}-${end - 1}`);
 
+    // How big the whole file is, so that one too large can be turned away at its
+    // first chunk instead of after its last.
+    body.append('size', String(file.size));
+
     const response = await fetch('upload.php', {method: 'POST', body});
     const result = await response.json();
 
