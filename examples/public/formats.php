@@ -1,17 +1,5 @@
 <?php
 
-/**
- * The three formats a file can be sent in, side by side.
- *
- * The page below sends the same file three times — as a plain upload, as a base64
- * data uri and as a json payload — and the collector picks all three of them out of
- * the one request, because that is what it does.
- *
- * A data uri and a json payload carry their own name, range and size in their meta
- * section, so they need no field of their own next to them, which is what makes them
- * worth the third of extra bytes base64 costs.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 use Shetabit\Chunky\Classes\Collector;

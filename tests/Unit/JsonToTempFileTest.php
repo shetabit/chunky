@@ -29,11 +29,6 @@ final class JsonToTempFileTest extends TestCase
         $this->assertSame($binary, new JsonToTempFile($this->jsonPayload($binary))->decodeData()['data']);
     }
 
-    /**
-     * The payload used to be decoded into objects, which made `meta` an object as
-     * well — and reading a key off of an object is a fatal error, so every payload
-     * that carried a meta section brought the request down.
-     */
     public function testItReadsTheMetaSectionOfThePayload() : void
     {
         $payload = $this->jsonPayload('hello', 'image/png', ['name' => 'avatar.png', 'range' => '0-1023']);

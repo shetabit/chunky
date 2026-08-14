@@ -1,13 +1,5 @@
 <?php
 
-/**
- * Hands an uploaded file back out, in whatever ranges the client asks for.
- *
- * `StreamOut` reads the `Range` header of the request on its own, so a download
- * manager can take the file in pieces, several at a time, and pick a broken download
- * up where it left off.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 use Shetabit\Chunky\Classes\StreamOut;

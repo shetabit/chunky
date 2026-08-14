@@ -24,10 +24,6 @@ final class StreamOutTest extends TestCase
         $this->assertSame(md5($this->path('song.txt')), $stream->getBoundary());
     }
 
-    /**
-     * A missing file used to send a `400` and to end the whole script, which left the
-     * application no way of answering the request itself.
-     */
     public function testItRefusesAFileThatDoesNotExist() : void
     {
         $this->expectException(FileNotFoundException::class);
@@ -153,10 +149,6 @@ final class StreamOutTest extends TestCase
         $this->assertSame('text/plain', $stream->header('Content-Type'));
     }
 
-    /**
-     * A single range used to be followed by the rest of the file, which is more than
-     * the `Content-Length` of the response announces.
-     */
     public function testItWritesNothingBehindTheRangeThatWasAskedFor() : void
     {
         $stream = new RecordingStreamOut($this->writeFile('song.txt', 'abcdefghij'));
@@ -208,9 +200,6 @@ final class StreamOutTest extends TestCase
         );
     }
 
-    /**
-     * An unsatisfiable range used to end the whole script instead of answering it.
-     */
     public function testItAnswersARangeItCanNotServeWithA416() : void
     {
         $stream = new RecordingStreamOut($this->writeFile('song.txt', 'abcdefghij'));
@@ -252,10 +241,6 @@ final class StreamOutTest extends TestCase
         $this->assertContains('HTTP/2 206 Partial Content', $stream->headers);
     }
 
-    /**
-     * The stream itself, with nothing of it replaced: `header()` does nothing under
-     * the command line, the body is all there is to look at.
-     */
     public function testItSendsItsHeadersAndItsBodyOnItsOwn() : void
     {
         $stream = new StreamOut($this->writeFile('song.txt', 'abcdefghij'), 1, 4);

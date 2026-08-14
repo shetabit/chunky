@@ -1,13 +1,5 @@
 <?php
 
-/**
- * The page of the example.
- *
- * Pick a file, watch it go up chunk by chunk, pause it in the middle, reload the page
- * and pick it up where it stopped. The list underneath hands the files back out again
- * through a resumable download.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 ?><!doctype html>

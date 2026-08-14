@@ -15,6 +15,8 @@ make up
 
 Then open **http://localhost:8080**.
 
+<p align="center"><img src="../resources/images/chunky-file-upload.png?raw=true"></p>
+
 ```bash
 make down     # stop it
 make logs     # follow the log

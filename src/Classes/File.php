@@ -15,79 +15,49 @@ use Shetabit\Chunky\Exceptions\FileNotFoundException;
 class File implements FileInterface
 {
     /**
-     * The mode the file is opened in.
-     *
-     * `c+` opens the file for reading and writing, creates it when it is not there
-     * yet and — unlike `w+` — keeps what is already in it. The write position can be
-     * moved freely, which is what writing a chunk at its own offset needs.
+     * Reads and writes, creates what is not there, keeps what is, and seeks freely.
      */
     protected const string MODE = 'c+b';
 
-    /**
-     * Where the file is stored.
-     */
     protected string $path = '';
 
     /**
-     * The handle of the file while it is open.
-     *
      * @var resource|null
      */
     protected $handle;
 
     /**
-     * The attribute information of the file.
-     *
-     * @example name, mime, size, range, ...
-     *
      * @var array<string, mixed>
      */
     protected array $attributes = [];
 
-    /**
-     * File constructor.
-     */
     public function __construct(string $path = '')
     {
         $this->setPath($path);
     }
 
-    /**
-     * Retrieve the path of the file.
-     */
     public function getPath() : string
     {
         return $this->path;
     }
 
-    /**
-     * Determine whether the file exists on disk.
-     */
     public function exists() : bool
     {
         return $this->path !== '' && is_file($this->path);
     }
 
-    /**
-     * The size of the file in bytes.
-     *
-     * It is read from the open handle instead of `filesize()`, which is answered from
-     * a cache that a write of this very file does not clear.
-     */
     public function getSize() : int
     {
         if (! $this->exists()) {
             return 0;
         }
 
+        // Not `filesize()`, which answers from a cache a write of this file leaves stale.
         $stat = fstat($this->open());
 
         return $stat === false ? 0 : $stat['size'];
     }
 
-    /**
-     * Create (or overwrite) the file with the given data.
-     */
     public function create(string $data) : static
     {
         $handle = $this->open();
@@ -100,10 +70,7 @@ class File implements FileInterface
     }
 
     /**
-     * Read (a part of) the file.
-     *
-     * @param int      $offset the byte the reading starts at
-     * @param int|null $length how many bytes to read, `null` reads until the end of the file
+     * @param int|null $length `null` reads until the end of the file
      */
     public function read(int $offset = 0, int|null $length = null) : string
     {
@@ -114,15 +81,13 @@ class File implements FileInterface
         $size = $this->getSize();
         $offset = max(0, $offset);
 
-        // A length that is not given, not positive or longer than the file itself
-        // reads whatever is left of the file.
         if ($length === null || $length <= 0 || $length > $size) {
             $length = $size;
         }
 
         $length = min($length, $size - $offset);
 
-        if ($length <= 0) { // the offset is at (or past) the end of the file
+        if ($length <= 0) {
             return '';
         }
 
@@ -134,32 +99,24 @@ class File implements FileInterface
     }
 
     /**
-     * Write data into the file, starting at the given byte.
-     *
-     * Everything that is already there stays where it is: a write past the end of the
-     * file leaves a gap, which is what an upload that receives its chunks out of order
-     * relies on.
+     * A write past the end of the file leaves a gap, which is what an upload that
+     * receives its chunks out of order relies on.
      */
     public function write(string $data, int $offset = 0) : static
     {
         $handle = $this->open();
 
-        // lock stream
         flock($handle, LOCK_EX);
 
         fseek($handle, max(0, $offset));
 
         $this->put($handle, $data);
 
-        // unlock stream
         flock($handle, LOCK_UN);
 
         return $this;
     }
 
-    /**
-     * Close the handle of the file, if it is open.
-     */
     public function close() : static
     {
         if (is_resource($this->handle)) {
@@ -171,9 +128,6 @@ class File implements FileInterface
         return $this;
     }
 
-    /**
-     * Remove the file, if it exists.
-     */
     public function remove() : static
     {
         $this->close();
@@ -185,41 +139,27 @@ class File implements FileInterface
         return $this;
     }
 
-    /**
-     * Determine whether an attribute information exists.
-     */
     public function __isset(string $name) : bool
     {
         return isset($this->attributes[$name]);
     }
 
-    /**
-     * Set an attribute information.
-     */
     public function __set(string $name, mixed $value) : void
     {
         $this->attributes[$name] = $value;
     }
 
-    /**
-     * Retrieve an attribute information.
-     */
     public function __get(string $name) : mixed
     {
         return $this->attributes[$name] ?? null;
     }
 
-    /**
-     * Remove an attribute information.
-     */
     public function __unset(string $name) : void
     {
         unset($this->attributes[$name]);
     }
 
     /**
-     * Retrieve every attribute information of the file.
-     *
      * @return array<string, mixed>
      */
     public function getAttributes() : array
@@ -227,20 +167,14 @@ class File implements FileInterface
         return $this->attributes;
     }
 
-    /**
-     * File destructor.
-     */
     public function __destruct()
     {
         $this->close();
     }
 
-    /**
-     * Set or change the path of the file.
-     */
     protected function setPath(string $path) : static
     {
-        if ($path !== $this->path) { // the handle that is open belongs to the old path
+        if ($path !== $this->path) {
             $this->close();
         }
 
@@ -250,10 +184,8 @@ class File implements FileInterface
     }
 
     /**
-     * Open the file and keep its handle around.
-     *
-     * A single handle is kept and reused, so that repeated reads and writes of the
-     * same file neither reopen it nor leave a handle behind.
+     * One handle is kept and reused, so repeated reads and writes neither reopen the
+     * file nor leave a handle behind.
      *
      * @return resource
      */
@@ -277,8 +209,6 @@ class File implements FileInterface
     }
 
     /**
-     * Write data through the given handle and make sure it reaches the file.
-     *
      * @param resource $handle
      */
     protected function put($handle, string $data) : void

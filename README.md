@@ -124,12 +124,20 @@ $uploads = $inputStream->process();
 ```
 
 after uploading files, they will be in `$uploads` in array format: one entry per chunk, each of them holding the
-`path` the chunk was written to, the `range` of the destination it was written at (`[offset, length]`) and the `file`
-itself.
+`path` the chunk was written to, the `range` of the destination it was written at (`[offset, length]`), the `file`
+itself and how much of it is `assembled` so far.
+
+the **upload stream** is **multi-chunk** and **resumable**: an upload that was paused — or whose browser was closed —
+starts again at the byte it stopped on, because every chunk says which bytes of the file it holds and the server
+writes it exactly there.
+
+<p align="center"><img src="resources/images/chunky-file-upload.png?raw=true"></p>
 
 A chunk carries the bytes of the whole file it holds in its `range` (`1024-2047`), and that is where it is written —
 whatever order the chunks arrive in. The name a chunk is stored under is its own name with everything but the file
 name cut off it, so a client can not write outside of the upload directory.
+
+The screenshot above is [the example](examples) that comes with the package; `make up` in `examples/` runs it.
 
 #### The formats a chunk can be sent in
 

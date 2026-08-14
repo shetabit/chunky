@@ -7,18 +7,14 @@ use Shetabit\Chunky\Contracts\ValidationInterface;
 use Shetabit\Chunky\Exceptions\ValidationFailedException;
 
 /**
- * Turns away files whose name does not end in one of the given extensions.
- *
- * The name of a file is whatever the client called it, so this says what a file is
- * allowed to be called — not what it is allowed to hold. `MimeType` looks inside.
+ * Says what a file is allowed to be called, not what it is allowed to hold —
+ * `MimeType` is the one that looks inside.
  *
  * @example new Extension(['jpg', 'jpeg', 'png', 'gif'])
  */
 class Extension implements ValidationInterface
 {
     /**
-     * The extensions that are taken, lower case and without their dot.
-     *
      * @var list<string>
      */
     protected array $allowed;
@@ -55,8 +51,6 @@ class Extension implements ValidationInterface
     }
 
     /**
-     * The extensions that are taken.
-     *
      * @return list<string>
      */
     public function getAllowed() : array
@@ -64,9 +58,6 @@ class Extension implements ValidationInterface
         return $this->allowed;
     }
 
-    /**
-     * The extensions that are taken, as a sentence.
-     */
     protected function allowedAsText() : string
     {
         return $this->allowed === [] ? 'nothing' : implode(', ', $this->allowed);

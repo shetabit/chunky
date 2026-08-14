@@ -1,12 +1,5 @@
 <?php
 
-/**
- * What is in the upload directory, and how much of it is there.
- *
- * The browser asks this before it starts sending: a file that is already half on the
- * server is picked up where it stopped instead of being sent again.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 $files = [];

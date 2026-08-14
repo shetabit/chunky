@@ -1,9 +1,5 @@
 <?php
 
-/**
- * Throws an uploaded file away, so that the example can be run again from the top.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 use Shetabit\Chunky\Classes\File;

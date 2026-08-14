@@ -72,9 +72,6 @@ final class StreamInValidationTest extends TestCase
         $this->assertFileDoesNotExist($this->path('invoice.pdf'));
     }
 
-    /**
-     * A request that carries one chunk too many leaves nothing of itself behind.
-     */
     public function testNothingIsStoredWhenASingleChunkIsTurnedAway() : void
     {
         $_REQUEST['media'] = [
@@ -203,10 +200,6 @@ final class StreamInValidationTest extends TestCase
         $this->assertSame(8, $stream->process()[0]['assembled']);
     }
 
-    /**
-     * The whole point of `afterUpload`: it is where a run finds out that the file it
-     * has been collecting is complete.
-     */
     public function testTheAfterUploadEventSeesTheFileBeingCompleted() : void
     {
         $completed = [];

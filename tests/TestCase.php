@@ -7,9 +7,6 @@ use Shetabit\Chunky\Contracts\FileInterface;
 
 abstract class TestCase extends BaseTestCase
 {
-    /**
-     * A directory of its own for every test, removed once the test is over.
-     */
     protected string $workspace;
 
     protected function setUp() : void
@@ -38,17 +35,11 @@ abstract class TestCase extends BaseTestCase
         parent::tearDown();
     }
 
-    /**
-     * The path of the given name inside the workspace of the test.
-     */
     protected function path(string $name = '') : string
     {
         return $name === '' ? $this->workspace : $this->workspace.DIRECTORY_SEPARATOR.$name;
     }
 
-    /**
-     * Write a file into the workspace of the test and return its path.
-     */
     protected function writeFile(string $name, string $contents) : string
     {
         $path = $this->path($name);
@@ -139,9 +130,6 @@ abstract class TestCase extends BaseTestCase
         return array_map(static fn (FileInterface $file): mixed => $file->name, $files);
     }
 
-    /**
-     * Remove a directory and everything in it.
-     */
     protected function removeDirectory(string $directory) : void
     {
         if (! is_dir($directory)) {

@@ -1,14 +1,5 @@
 <?php
 
-/**
- * Takes a chunk of a file and writes it where it belongs.
- *
- * This is the whole server side of a resumable, chunked upload: a collector picks the
- * chunk out of the request and `StreamIn` writes it at the offset of its range. A
- * chunk that arrives twice overwrites itself, and chunks that arrive out of order end
- * up in the right place all the same.
- */
-
 require dirname(__DIR__).'/bootstrap.php';
 
 use Shetabit\Chunky\Classes\ChunkedUploadCollector;

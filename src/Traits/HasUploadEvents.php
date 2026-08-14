@@ -7,15 +7,11 @@ use Shetabit\Chunky\Contracts\TempFileInterface;
 trait HasUploadEvents
 {
     /**
-     * The callbacks that were registered, by the name of their event.
-     *
      * @var array<string, callable>
      */
     protected array $eventCallbacks = [];
 
     /**
-     * Called with every chunk before it is validated.
-     *
      * @param callable(TempFileInterface): void $callback
      */
     public function beforeValidate(callable $callback) : static
@@ -24,12 +20,9 @@ trait HasUploadEvents
     }
 
     /**
-     * Called with every chunk after it was validated, whether it passed or not.
+     * Called whether the chunk passed or not, with its errors as second argument.
      *
-     * @param callable(TempFileInterface, list<string>): void $callback the errors of
-     *                                                                  this chunk are
-     *                                                                  the second
-     *                                                                  argument
+     * @param callable(TempFileInterface, list<string>): void $callback
      */
     public function afterValidate(callable $callback) : static
     {
@@ -37,9 +30,7 @@ trait HasUploadEvents
     }
 
     /**
-     * Called with every chunk before it is written, and with where it is written to.
-     *
-     * @param callable(TempFileInterface, string): void $callback
+     * @param callable(TempFileInterface, string): void $callback second argument is the path
      */
     public function beforeUpload(callable $callback) : static
     {
@@ -47,9 +38,8 @@ trait HasUploadEvents
     }
 
     /**
-     * Called with every chunk after it was written, with where it was written to and
-     * with how much of the file is there now — which is how a run finds out that the
-     * last chunk of a file has arrived.
+     * The third argument is how much of the file is on disk now, which is how a run
+     * finds out that the last chunk of a file has arrived.
      *
      * @param callable(TempFileInterface, string, int): void $callback
      */
@@ -58,9 +48,6 @@ trait HasUploadEvents
         return $this->on('afterUpload', $callback);
     }
 
-    /**
-     * Register a callback for the event of the given name.
-     */
     protected function on(string $event, callable $callback) : static
     {
         $this->eventCallbacks[$event] = $callback;
@@ -68,9 +55,6 @@ trait HasUploadEvents
         return $this;
     }
 
-    /**
-     * Call the callback of the given event, if there is one.
-     */
     protected function dispatchEvent(string $event, mixed ...$arguments) : void
     {
         $callback = $this->eventCallbacks[$event] ?? null;

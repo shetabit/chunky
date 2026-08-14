@@ -4,24 +4,16 @@ namespace Shetabit\Chunky\Exceptions;
 
 use Shetabit\Chunky\Contracts\FileInterface;
 
-/**
- * A file was turned away by a validation.
- */
 class ValidationFailedException extends ChunkyException
 {
     /**
-     * Everything that is wrong, one message per validation that failed.
-     *
      * @var list<string>
      */
     protected array $errors;
 
     /**
-     * @param FileInterface|null $chunk the file that was turned away. It is not called
-     *                                  `$file`, and neither is its getter, because
-     *                                  `Exception` has a `getFile()` of its own — a
-     *                                  final one, holding the file the exception was
-     *                                  thrown in.
+     * Not `$file`, and neither is its getter: `Exception::getFile()` is final and
+     * holds the file the exception was thrown in.
      */
     public function __construct(string $message, protected FileInterface|null $chunk = null)
     {
@@ -31,8 +23,6 @@ class ValidationFailedException extends ChunkyException
     }
 
     /**
-     * The exception of a whole run: every file that was turned away, and why.
-     *
      * @param list<string> $errors
      */
     public static function fromErrors(array $errors) : self
@@ -45,8 +35,6 @@ class ValidationFailedException extends ChunkyException
     }
 
     /**
-     * Everything that is wrong, one message per validation that failed.
-     *
      * @return list<string>
      */
     public function getErrors() : array
@@ -55,7 +43,7 @@ class ValidationFailedException extends ChunkyException
     }
 
     /**
-     * The chunk that was turned away, when a single one was.
+     * Only set when a single chunk was at fault.
      */
     public function getChunk() : FileInterface|null
     {
